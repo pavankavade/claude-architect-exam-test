@@ -21,6 +21,8 @@ import {
   Check,
   HelpCircle,
   ArrowLeft,
+  Lightbulb,
+  Zap,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { QUESTIONS_DATA, SCENARIOS } from "@/data/questions";
@@ -63,7 +65,6 @@ function ExamRunnerContent() {
   const [ttsStatus, setTtsStatus] = useState<string>("Andrew Neural Audio Ready");
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const explCardRef = useRef<HTMLDivElement | null>(null);
 
   // Filtered Questions
   const filteredQuestions: Question[] = useMemo(() => {
@@ -74,10 +75,10 @@ function ExamRunnerContent() {
   const currentQ: Question | undefined = filteredQuestions[currentIndex];
   const total = filteredQuestions.length;
 
-  // Load Saved State from LocalStorage
+  // Load Saved State
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("cca_nextjs_exam_state_v1");
+      const saved = localStorage.getItem("cca_nextjs_exam_state_v2");
       if (saved) {
         const data = JSON.parse(saved);
         if (data.answers) setAnswers(data.answers);
@@ -93,7 +94,7 @@ function ExamRunnerContent() {
   }, [filteredQuestions.length]);
 
   // Save State
-  const saveState = () => {
+  useEffect(() => {
     try {
       const data = {
         answers,
@@ -101,14 +102,10 @@ function ExamRunnerContent() {
         autoRead,
         lastIndex: currentIndex,
       };
-      localStorage.setItem("cca_nextjs_exam_state_v1", JSON.stringify(data));
+      localStorage.setItem("cca_nextjs_exam_state_v2", JSON.stringify(data));
     } catch (e) {
       console.error("Failed to save state", e);
     }
-  };
-
-  useEffect(() => {
-    saveState();
   }, [answers, flagged, autoRead, currentIndex]);
 
   // Audio Control Methods
@@ -158,7 +155,7 @@ function ExamRunnerContent() {
     };
 
     audio.onerror = () => {
-      console.warn("Audio file missing or failed to load, falling back to Web Speech", src);
+      console.warn("Audio file missing, falling back to Web Speech", src);
       speakWebSpeech(currentQ ? `${currentQ.situation} ${currentQ.question}` : "");
     };
 
@@ -197,15 +194,7 @@ function ExamRunnerContent() {
   // Option selection
   const handleSelectOption = (letter: "A" | "B" | "C" | "D") => {
     if (!currentQ || answers[currentQ.global_n] !== undefined) return;
-
     setAnswers((prev) => ({ ...prev, [currentQ.global_n]: letter }));
-
-    // Smooth scroll explanation directly into view with clearance
-    setTimeout(() => {
-      if (explCardRef.current) {
-        explCardRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
-      }
-    }, 80);
   };
 
   const handleClearAnswer = () => {
@@ -232,7 +221,12 @@ function ExamRunnerContent() {
     const next = currentIndex + dir;
     if (next >= 0 && next < filteredQuestions.length) {
       setCurrentIndex(next);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      if (autoRead && filteredQuestions[next]) {
+        setTimeout(() => {
+          const file = `/audio/q_${filteredQuestions[next].global_n}.mp3`;
+          playAudioFile(file);
+        }, 150);
+      }
     }
   };
 
@@ -241,10 +235,9 @@ function ExamRunnerContent() {
     setCurrentIndex(idx);
     setShowSummary(false);
     setSidebarOpen(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Trigger celebration confetti on summary
+  // Confetti on Summary
   useEffect(() => {
     if (showSummary) {
       let correct = 0;
@@ -297,13 +290,13 @@ function ExamRunnerContent() {
   const isCorrect = chosen === currentQ?.correct;
   const isFlagged = currentQ ? flagged.has(currentQ.global_n) : false;
 
-  // Stats calculation
+  // Stats
   const answeredCount = filteredQuestions.filter((q) => answers[q.global_n] !== undefined).length;
   const correctCount = filteredQuestions.filter((q) => answers[q.global_n] === q.correct).length;
   const wrongCount = answeredCount - correctCount;
   const progressPct = total > 0 ? Math.round(((currentIndex + 1) / total) * 100) : 0;
 
-  // Retake Incorrect
+  // Retake
   const handleRetakeIncorrect = () => {
     const wrongIds = filteredQuestions
       .filter((q) => answers[q.global_n] && answers[q.global_n] !== q.correct)
@@ -330,12 +323,12 @@ function ExamRunnerContent() {
       setFlagged(new Set());
       setShowSummary(false);
       setCurrentIndex(0);
-      localStorage.removeItem("cca_nextjs_exam_state_v1");
+      localStorage.removeItem("cca_nextjs_exam_state_v2");
     }
   };
 
   return (
-    <div className="relative min-h-[calc(100vh-64px)] flex flex-col justify-between">
+    <div className="min-h-[calc(100vh-64px)] flex flex-col justify-between bg-[#090e17] select-none">
       {/* Top Progress Bar */}
       <div className="w-full bg-[#1c2a42] h-1.5 fixed top-16 left-0 z-40">
         <div
@@ -344,246 +337,145 @@ function ExamRunnerContent() {
         />
       </div>
 
-      {/* Main Layout Shell */}
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex gap-8">
-        {/* =========================================
-            SIDEBAR / QUESTION PALETTE (Desktop)
-        ========================================= */}
-        <aside
-          className={`fixed inset-y-0 left-0 z-50 w-80 bg-[#0d1522] border-r border-[#23344e] p-5 transform transition-transform duration-300 lg:relative lg:translate-x-0 lg:z-0 lg:block lg:rounded-2xl lg:border ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
-        >
-          <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#23344e]">
-            <div className="flex items-center gap-2 font-bold text-sm text-white">
-              <LayoutGrid className="w-4 h-4 text-sky-400" />
-              Question Palette
-            </div>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden text-slate-400 hover:text-white p-1 text-sm font-bold"
-            >
-              ✕
-            </button>
-          </div>
-
-          {/* Scenario Filter */}
-          <div className="mb-4">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5 flex items-center gap-1.5">
-              <Filter className="w-3 h-3 text-sky-400" /> Filter Scenario
-            </label>
-            <select
-              value={selectedScenario}
-              onChange={(e) => {
-                stopAudio();
-                setSelectedScenario(e.target.value);
-                setCurrentIndex(0);
-              }}
-              className="w-full text-xs font-semibold bg-[#131d2e] border border-[#23344e] text-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-sky-500 cursor-pointer"
-            >
-              <option value="ALL">All Scenarios ({QUESTIONS_DATA.length} Questions)</option>
-              {SCENARIOS.map((sc, i) => (
-                <option key={i} value={sc}>
-                  {sc} ({QUESTIONS_DATA.filter((q) => q.scenario === sc).length})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Stats Badges */}
-          <div className="flex justify-between text-xs text-slate-400 bg-[#131d2e] border border-[#23344e] rounded-xl p-2.5 mb-4">
-            <span>
-              Done: <strong className="text-white">{answeredCount}</strong>/{total}
-            </span>
-            <span>
-              Correct: <strong className="text-emerald-400">{correctCount}</strong>
-            </span>
-            <span>
-              Flagged: <strong className="text-amber-400">{flagged.size}</strong>
-            </span>
-          </div>
-
-          {/* 88 Question Grid */}
-          <div className="h-[calc(100vh-360px)] overflow-y-auto pr-1">
-            <div className="grid grid-cols-4 gap-2">
-              {filteredQuestions.map((q, idx) => {
-                const ans = answers[q.global_n];
-                const active = idx === currentIndex;
-                const isFlag = flagged.has(q.global_n);
-
-                let btnClass = "bg-[#131d2e] text-slate-400 border-[#23344e] hover:border-sky-500 hover:text-white";
-                if (active) btnClass = "bg-sky-500/20 text-sky-400 border-sky-500 font-bold shadow-md shadow-sky-500/10";
-                else if (ans !== undefined) {
-                  btnClass = ans === q.correct ? "bg-emerald-950/40 text-emerald-400 border-emerald-600/60 font-bold" : "bg-rose-950/40 text-rose-400 border-rose-600/60 font-bold";
-                }
-
-                return (
-                  <button
-                    key={q.global_n}
-                    onClick={() => handleGoto(idx)}
-                    className={`relative aspect-square rounded-xl border text-xs font-semibold transition-all flex items-center justify-center ${btnClass}`}
-                    title={`Q${q.global_n}: ${q.scenario}`}
-                  >
-                    {q.global_n}
-                    {isFlag && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </aside>
-
-        {/* =========================================
-            QUESTION VIEW / EXAM CONTENT
-        ========================================= */}
-        <div className="flex-1 max-w-4xl pb-32">
-          {!showSummary ? (
-            currentQ && (
-              <div className="space-y-6">
+      {/* Main Container */}
+      <div className="max-w-[1680px] mx-auto w-full px-3 sm:px-6 py-4 flex-1 flex flex-col">
+        {!showSummary ? (
+          currentQ && (
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              {/* =========================================
+                  LEFT COLUMN (7 of 12 cols): QUESTION & OPTIONS
+              ========================================= */}
+              <div className="lg:col-span-7 flex flex-col gap-3.5">
                 {/* Meta Bar */}
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => setSidebarOpen(true)}
-                      className="lg:hidden px-3 py-1.5 rounded-lg bg-[#131d2e] border border-[#23344e] text-xs font-bold text-sky-400 flex items-center gap-1.5"
+                      className="px-2.5 py-1 rounded-lg bg-[#131d2e] border border-[#23344e] text-xs font-bold text-sky-400 flex items-center gap-1 hover:bg-[#1c2a42]"
                     >
-                      <LayoutGrid className="w-3.5 h-3.5" /> Palette
+                      <LayoutGrid className="w-3.5 h-3.5" /> Palette ({answeredCount}/{total})
                     </button>
 
-                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400">
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400">
                       {currentQ.scenario}
                     </span>
 
                     <span className="text-xs font-semibold text-slate-400">
-                      Question {currentIndex + 1} of {total} (Q#{currentQ.global_n})
+                      Q {currentIndex + 1}/{total} (Q#{currentQ.global_n})
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <button
                       onClick={handleToggleFlag}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-colors ${
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors ${
                         isFlagged
                           ? "bg-amber-500/20 border-amber-500 text-amber-400"
                           : "bg-[#131d2e] border-[#23344e] text-slate-400 hover:text-white"
                       }`}
                     >
                       <Bookmark className={`w-3.5 h-3.5 ${isFlagged ? "fill-amber-400" : ""}`} />
-                      {isFlagged ? "Bookmarked" : "Bookmark"}
+                      {isFlagged ? "Flagged" : "Flag"}
                     </button>
 
                     <button
                       onClick={() => setShowSummary(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#131d2e] border border-[#23344e] hover:border-sky-500 text-xs font-semibold text-sky-400 hover:text-white transition-colors"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#131d2e] border border-[#23344e] hover:border-sky-500 text-xs font-semibold text-sky-400 hover:text-white transition-colors"
                     >
-                      <Award className="w-3.5 h-3.5" /> Finish &amp; Review
+                      <Award className="w-3.5 h-3.5" /> Results
                     </button>
                   </div>
                 </div>
 
-                {/* Microsoft Andrew Neural Audio Bar */}
+                {/* Compact Audio Bar */}
                 <div
-                  className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                  className={`px-3 py-2 rounded-xl border flex items-center justify-between gap-3 text-xs transition-all ${
                     isSpeaking
-                      ? "bg-purple-950/20 border-purple-500/50 shadow-lg shadow-purple-500/10"
+                      ? "bg-purple-950/20 border-purple-500/50 shadow-md shadow-purple-500/10"
                       : "bg-[#131d2e] border-[#23344e]"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400 flex-shrink-0">
+                  <div className="flex items-center gap-2 truncate">
+                    <div className="w-6 h-6 rounded-md bg-sky-500/20 flex items-center justify-center text-sky-400 flex-shrink-0">
                       {isSpeaking ? (
-                        <div className="flex items-center gap-0.5 h-4">
+                        <div className="flex items-center gap-0.5 h-3">
                           <div className="w-0.5 bg-purple-400 wave-bar-1" />
                           <div className="w-0.5 bg-purple-400 wave-bar-2" />
                           <div className="w-0.5 bg-purple-400 wave-bar-3" />
-                          <div className="w-0.5 bg-purple-400 wave-bar-4" />
-                          <div className="w-0.5 bg-purple-400 wave-bar-5" />
                         </div>
                       ) : (
-                        <Headphones className="w-5 h-5" />
+                        <Headphones className="w-3.5 h-3.5" />
                       )}
                     </div>
-                    <div>
-                      <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
-                        {ttsStatus}
-                        <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30">
-                          ⚡ 0ms Andrew Neural
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-400 font-medium">Instant Pre-Rendered Audio Simulation</div>
-                    </div>
+                    <span className="font-semibold text-slate-200 truncate">
+                      {isSpeaking ? ttsStatus : "Microsoft Andrew Neural Voice Audio"}
+                    </span>
                   </div>
 
-                  {/* Audio Controls */}
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button
                       onClick={() => speakQuestion(false)}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-900 shadow-md shadow-sky-500/20 transition-all hover:scale-105 active:scale-95"
+                      className="px-2.5 py-1 rounded-lg font-bold bg-sky-500 hover:bg-sky-400 text-slate-900 shadow-sm flex items-center gap-1"
                     >
-                      <Volume2 className="w-3.5 h-3.5" /> Listen Question
+                      <Volume2 className="w-3 h-3" /> Listen
                     </button>
 
                     <button
                       onClick={() => speakQuestion(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-[#1c2a42] hover:bg-[#23344e] border border-[#23344e] text-slate-200 hover:text-white transition-colors"
+                      className="px-2 py-1 rounded-lg font-medium bg-[#1c2a42] hover:bg-[#23344e] border border-[#23344e] text-slate-200"
                     >
-                      <Play className="w-3.5 h-3.5 text-indigo-400" /> Read with Choices
+                      <Play className="w-3 h-3 text-indigo-400 inline mr-0.5" /> + Choices
                     </button>
 
                     {isSpeaking && (
                       <>
                         <button
                           onClick={pauseResumeAudio}
-                          className="px-2.5 py-2 rounded-xl text-xs font-semibold bg-[#1c2a42] hover:bg-[#23344e] border border-[#23344e] text-slate-200"
-                          title="Pause / Resume"
+                          className="p-1 rounded-lg bg-[#1c2a42] text-slate-200"
+                          title="Pause"
                         >
-                          {isPaused ? <Play className="w-3.5 h-3.5 text-emerald-400" /> : <Pause className="w-3.5 h-3.5 text-amber-400" />}
+                          {isPaused ? <Play className="w-3 h-3 text-emerald-400" /> : <Pause className="w-3 h-3 text-amber-400" />}
                         </button>
-
-                        <button
-                          onClick={stopAudio}
-                          className="px-2.5 py-2 rounded-xl text-xs font-semibold bg-rose-950/40 hover:bg-rose-900/60 border border-rose-700/50 text-rose-300"
-                          title="Stop Audio"
-                        >
-                          <Square className="w-3.5 h-3.5 fill-rose-400" />
+                        <button onClick={stopAudio} className="p-1 rounded-lg bg-rose-950/40 text-rose-300" title="Stop">
+                          <Square className="w-3 h-3 fill-rose-400" />
                         </button>
                       </>
                     )}
                   </div>
                 </div>
 
-                {/* Situation Context Box */}
-                <div className="p-6 rounded-2xl bg-[#131d2e] border border-[#23344e] shadow-sm space-y-2">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <HelpCircle className="w-3.5 h-3.5 text-sky-400" /> Situation Context
+                {/* Situation Context Card */}
+                <div className="p-3.5 sm:p-4 rounded-xl bg-[#131d2e] border border-[#23344e] shadow-sm space-y-1.5 text-xs sm:text-sm">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <HelpCircle className="w-3 h-3 text-sky-400" /> Situation Context
                   </div>
                   <div
-                    className="text-slate-100 text-sm sm:text-base leading-relaxed format-code"
+                    className="text-slate-100 leading-relaxed format-code"
                     dangerouslySetInnerHTML={{ __html: formatMarkdown(currentQ.situation) }}
                   />
                 </div>
 
                 {/* Question Prompt */}
                 <h2
-                  className="text-base sm:text-xl font-bold text-white leading-snug format-code"
+                  className="text-sm sm:text-base font-bold text-white leading-snug format-code"
                   dangerouslySetInnerHTML={{ __html: formatMarkdown(currentQ.question) }}
                 />
 
-                {/* Options List */}
-                <div className="space-y-3">
+                {/* 4 Options Grid (Compact & Clear) */}
+                <div className="grid grid-cols-1 gap-2">
                   {currentQ.options.map((opt) => {
                     let cardBorder = "border-[#23344e] bg-[#131d2e] hover:border-sky-500/50 hover:bg-[#162236]";
                     let badgeClass = "bg-[#1c2a42] text-slate-300 border-[#23344e]";
 
                     if (isAnswered) {
                       if (opt.letter === currentQ.correct) {
-                        cardBorder = "border-emerald-500 bg-emerald-950/20 shadow-md shadow-emerald-500/10";
+                        cardBorder = "border-emerald-500 bg-emerald-950/25 shadow-sm shadow-emerald-500/10";
                         badgeClass = "bg-emerald-500 text-slate-900 font-bold border-emerald-400";
                       } else if (opt.letter === chosen) {
-                        cardBorder = "border-rose-500 bg-rose-950/20 shadow-md shadow-rose-500/10";
+                        cardBorder = "border-rose-500 bg-rose-950/25 shadow-sm shadow-rose-500/10";
                         badgeClass = "bg-rose-500 text-white font-bold border-rose-400";
                       } else {
-                        cardBorder = "border-[#23344e]/60 bg-[#131d2e]/50 opacity-60";
+                        cardBorder = "border-[#23344e]/50 bg-[#131d2e]/40 opacity-55";
                       }
                     }
 
@@ -591,28 +483,28 @@ function ExamRunnerContent() {
                       <div
                         key={opt.letter}
                         onClick={() => handleSelectOption(opt.letter)}
-                        className={`p-4 sm:p-5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-4 ${cardBorder}`}
+                        className={`p-3 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${cardBorder}`}
                       >
                         <div
-                          className={`w-8 h-8 rounded-full border flex items-center justify-center text-xs font-bold flex-shrink-0 transition-colors ${badgeClass}`}
+                          className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${badgeClass}`}
                         >
                           {opt.letter}
                         </div>
-                        <div className="flex-1 text-xs sm:text-sm text-slate-200 leading-relaxed pt-1 flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex-1 text-xs sm:text-sm text-slate-200 leading-relaxed flex items-center justify-between flex-wrap gap-1.5">
                           <span
                             className="format-code"
                             dangerouslySetInnerHTML={{ __html: formatMarkdown(opt.text) }}
                           />
 
                           {isAnswered && opt.letter === currentQ.correct && (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-600/60 px-2.5 py-0.5 rounded-full">
-                              <Check className="w-3 h-3" /> Correct Answer
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-600/60 px-2 py-0.5 rounded-full">
+                              <Check className="w-2.5 h-2.5" /> Correct Answer
                             </span>
                           )}
 
                           {isAnswered && opt.letter === chosen && opt.letter !== currentQ.correct && (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 bg-rose-950/60 border border-rose-600/60 px-2.5 py-0.5 rounded-full">
-                              <XCircle className="w-3 h-3" /> Your Selection
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-rose-400 bg-rose-950/60 border border-rose-600/60 px-2 py-0.5 rounded-full">
+                              <XCircle className="w-2.5 h-2.5" /> Your Selection
                             </span>
                           )}
                         </div>
@@ -620,40 +512,40 @@ function ExamRunnerContent() {
                     );
                   })}
                 </div>
+              </div>
 
-                {/* =========================================
-                    PROMINENT INLINE EXPLANATION CARD (ALWAYS VISIBLE WHEN ANSWERED)
-                ========================================= */}
-                {isAnswered && (
+              {/* =========================================
+                  RIGHT COLUMN (5 of 12 cols): INSTANT RATIONALE & SOLUTION PANEL
+              ========================================= */}
+              <div className="lg:col-span-5 flex flex-col gap-3 lg:sticky lg:top-20">
+                {isAnswered ? (
                   <div
-                    ref={explCardRef}
-                    className={`p-6 rounded-2xl border-2 transition-all shadow-xl ${
+                    className={`p-4 sm:p-5 rounded-2xl border-2 transition-all shadow-xl space-y-3.5 animate-fadeIn ${
                       isCorrect
                         ? "bg-[#131d2e] border-emerald-500 shadow-emerald-500/10"
                         : "bg-[#131d2e] border-rose-500 shadow-rose-500/10"
                     }`}
-                    style={{ scrollMarginBottom: "120px" }}
                   >
-                    {/* Header Banner */}
+                    {/* Status Header Banner */}
                     <div
-                      className={`flex items-center justify-between p-3.5 rounded-xl mb-4 border ${
+                      className={`p-3 rounded-xl border flex items-center justify-between ${
                         isCorrect
                           ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-300"
                           : "bg-rose-950/40 border-rose-500/40 text-rose-300"
                       }`}
                     >
-                      <div className="font-bold text-sm sm:text-base flex items-center gap-2">
+                      <div className="font-bold text-xs sm:text-sm flex items-center gap-2">
                         {isCorrect ? (
                           <>
-                            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                             <span>🎉 Correct! Option {currentQ.correct} is the right answer.</span>
                           </>
                         ) : (
                           <>
-                            <XCircle className="w-5 h-5 text-rose-400" />
+                            <XCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
                             <span>
-                              ❌ Incorrect. You chose Option {chosen}, but the correct answer is Option{" "}
-                              <strong className="text-emerald-400">{currentQ.correct}</strong>.
+                              ❌ Incorrect. Correct is{" "}
+                              <strong className="text-emerald-400">Option {currentQ.correct}</strong>.
                             </span>
                           </>
                         )}
@@ -661,16 +553,16 @@ function ExamRunnerContent() {
 
                       <button
                         onClick={speakExplanation}
-                        className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#1c2a42] hover:bg-[#23344e] border border-[#23344e] text-slate-200"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-[#1c2a42] hover:bg-[#23344e] border border-[#23344e] text-slate-200 flex-shrink-0"
                       >
-                        <Volume2 className="w-3.5 h-3.5 text-sky-400" /> Listen Rationale
+                        <Volume2 className="w-3 h-3 text-sky-400" /> Read
                       </button>
                     </div>
 
-                    {/* Explanation Body */}
-                    <div className="p-4 rounded-xl bg-[#1c2a42] border-l-4 border-emerald-500 text-xs sm:text-sm text-slate-200 leading-relaxed space-y-2">
-                      <div className="font-bold text-slate-100 text-sm flex items-center gap-1.5">
-                        <Sparkles className="w-4 h-4 text-amber-400" /> Solution Rationale &amp; Architectural Key Takeaway:
+                    {/* Detailed Explanation Text */}
+                    <div className="p-3.5 rounded-xl bg-[#1c2a42] border-l-4 border-emerald-500 text-xs sm:text-sm text-slate-200 leading-relaxed space-y-2 max-h-[calc(100vh-270px)] overflow-y-auto pr-1">
+                      <div className="font-bold text-slate-100 text-xs flex items-center gap-1.5 uppercase tracking-wide">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Architectural Rationale:
                       </div>
                       <div
                         className="format-code"
@@ -678,91 +570,180 @@ function ExamRunnerContent() {
                       />
                     </div>
                   </div>
+                ) : (
+                  /* Placeholder before answer is selected */
+                  <div className="p-6 rounded-2xl bg-[#131d2e]/70 border border-[#23344e] text-center space-y-3">
+                    <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center mx-auto">
+                      <Zap className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-sm font-bold text-white">Live Architectural Rationale</h3>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Select an option on the left (or press <kbd className="px-1.5 py-0.5 rounded bg-[#1c2a42] border border-[#23344e] text-slate-300 font-mono text-[10px]">A-D</kbd>) to instantly inspect the engineering rationale and solution analysis.
+                    </p>
+                    <div className="pt-2 border-t border-[#23344e]/50 text-[11px] text-slate-400 text-left space-y-1">
+                      <div>⌨️ <strong>Shortcuts</strong>: <span className="font-mono text-sky-400">Space</span> (Play/Pause) • <span className="font-mono text-sky-400">N / →</span> (Next) • <span className="font-mono text-sky-400">P / ←</span> (Prev)</div>
+                    </div>
+                  </div>
                 )}
               </div>
-            )
-          ) : (
-            /* =========================================
-                FINISH & REVIEW SUMMARY SCREEN
-            ========================================= */
-            <div className="space-y-8 animate-fadeIn">
-              <div className="p-8 sm:p-12 rounded-3xl bg-[#131d2e] border border-[#23344e] text-center shadow-xl">
-                <div className="text-5xl sm:text-6xl font-black bg-gradient-to-r from-sky-400 via-indigo-300 to-emerald-400 bg-clip-text text-transparent mb-2">
-                  {Math.round((correctCount / total) * 100)}%
+            </div>
+          )
+        ) : (
+          /* =========================================
+              FINISH & REVIEW SUMMARY SCREEN
+          ========================================= */
+          <div className="space-y-6 max-w-3xl mx-auto w-full py-4">
+            <div className="p-8 sm:p-10 rounded-3xl bg-[#131d2e] border border-[#23344e] text-center shadow-xl">
+              <div className="text-5xl font-black bg-gradient-to-r from-sky-400 via-indigo-300 to-emerald-400 bg-clip-text text-transparent mb-2">
+                {Math.round((correctCount / total) * 100)}%
+              </div>
+              <h3 className="text-xl font-bold text-white mb-1">Practice Exam Results</h3>
+              <p className="text-xs text-slate-400 mb-6">
+                You answered {correctCount} of {total} questions correctly ({total - answeredCount} unanswered)
+              </p>
+
+              <div className="grid grid-cols-4 gap-2.5 max-w-lg mx-auto mb-6 text-center">
+                <div className="p-3 rounded-xl bg-[#1c2a42] border border-[#23344e]">
+                  <div className="text-xl font-bold text-white">{total}</div>
+                  <div className="text-[10px] font-semibold text-slate-400 uppercase">Total</div>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">Exam Results Summary</h3>
-                <p className="text-xs sm:text-sm text-slate-400 mb-8">
-                  You answered {correctCount} of {total} questions correctly ({total - answeredCount} unanswered)
-                </p>
-
-                {/* Metric Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto mb-8">
-                  <div className="p-4 rounded-xl bg-[#1c2a42] border border-[#23344e]">
-                    <div className="text-2xl font-bold text-white">{total}</div>
-                    <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total</div>
-                  </div>
-                  <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-700/50">
-                    <div className="text-2xl font-bold text-emerald-400">{correctCount}</div>
-                    <div className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wider">Correct</div>
-                  </div>
-                  <div className="p-4 rounded-xl bg-rose-950/30 border border-rose-700/50">
-                    <div className="text-2xl font-bold text-rose-400">{wrongCount}</div>
-                    <div className="text-[11px] font-semibold text-rose-300 uppercase tracking-wider">Incorrect</div>
-                  </div>
-                  <div className="p-4 rounded-xl bg-amber-950/30 border border-amber-700/50">
-                    <div className="text-2xl font-bold text-amber-400">{flagged.size}</div>
-                    <div className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider">Flagged</div>
-                  </div>
+                <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-700/50">
+                  <div className="text-xl font-bold text-emerald-400">{correctCount}</div>
+                  <div className="text-[10px] font-semibold text-emerald-300 uppercase">Correct</div>
                 </div>
-
-                {/* Actions */}
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  <button
-                    onClick={handleRetakeIncorrect}
-                    className="px-6 py-3 rounded-xl font-bold text-xs sm:text-sm bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-lg hover:scale-105 active:scale-95 transition-all"
-                  >
-                    🔁 Retake Incorrect Questions ({wrongCount})
-                  </button>
-
-                  <button
-                    onClick={() => setShowSummary(false)}
-                    className="px-6 py-3 rounded-xl font-semibold text-xs sm:text-sm bg-[#1c2a42] hover:bg-[#23344e] border border-[#23344e] text-slate-200"
-                  >
-                    <ArrowLeft className="w-4 h-4 inline mr-1" /> Back to Test
-                  </button>
-
-                  <button
-                    onClick={handleResetExam}
-                    className="px-6 py-3 rounded-xl font-semibold text-xs sm:text-sm bg-rose-950/40 hover:bg-rose-900/60 border border-rose-700/50 text-rose-300"
-                  >
-                    <RotateCcw className="w-4 h-4 inline mr-1" /> Reset All Answers
-                  </button>
+                <div className="p-3 rounded-xl bg-rose-950/30 border border-rose-700/50">
+                  <div className="text-xl font-bold text-rose-400">{wrongCount}</div>
+                  <div className="text-[10px] font-semibold text-rose-300 uppercase">Wrong</div>
+                </div>
+                <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-700/50">
+                  <div className="text-xl font-bold text-amber-400">{flagged.size}</div>
+                  <div className="text-[10px] font-semibold text-amber-300 uppercase">Flagged</div>
                 </div>
               </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-2.5">
+                <button
+                  onClick={handleRetakeIncorrect}
+                  className="px-5 py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-md hover:scale-105 transition-all"
+                >
+                  🔁 Retake Incorrect ({wrongCount})
+                </button>
+                <button
+                  onClick={() => setShowSummary(false)}
+                  className="px-5 py-2.5 rounded-xl font-semibold text-xs bg-[#1c2a42] hover:bg-[#23344e] border border-[#23344e] text-slate-200"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 inline mr-1" /> Back to Test
+                </button>
+                <button
+                  onClick={handleResetExam}
+                  className="px-4 py-2.5 rounded-xl font-semibold text-xs bg-rose-950/40 border border-rose-700/50 text-rose-300"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 inline mr-1" /> Reset
+                </button>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+
+      {/* =========================================
+          SLIDE-OVER QUESTION PALETTE DRAWER
+      ========================================= */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-start"
+          onClick={() => setSidebarOpen(false)}
+        >
+          <div
+            className="w-80 max-w-full bg-[#0d1522] border-r border-[#23344e] p-4 flex flex-col h-full shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#23344e]">
+              <div className="flex items-center gap-2 font-bold text-sm text-white">
+                <LayoutGrid className="w-4 h-4 text-sky-400" />
+                Question Palette
+              </div>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="text-slate-400 hover:text-white p-1 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Scenario Filter */}
+            <div className="mb-3">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                Filter Scenario
+              </label>
+              <select
+                value={selectedScenario}
+                onChange={(e) => {
+                  stopAudio();
+                  setSelectedScenario(e.target.value);
+                  setCurrentIndex(0);
+                }}
+                className="w-full text-xs font-semibold bg-[#131d2e] border border-[#23344e] text-slate-200 rounded-xl px-2.5 py-2 outline-none focus:border-sky-500 cursor-pointer"
+              >
+                <option value="ALL">All Scenarios ({QUESTIONS_DATA.length} Questions)</option>
+                {SCENARIOS.map((sc, i) => (
+                  <option key={i} value={sc}>
+                    {sc} ({QUESTIONS_DATA.filter((q) => q.scenario === sc).length})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 88 Grid */}
+            <div className="flex-1 overflow-y-auto pr-1">
+              <div className="grid grid-cols-4 gap-1.5">
+                {filteredQuestions.map((q, idx) => {
+                  const ans = answers[q.global_n];
+                  const active = idx === currentIndex;
+                  const isFlag = flagged.has(q.global_n);
+
+                  let btnClass = "bg-[#131d2e] text-slate-400 border-[#23344e] hover:border-sky-500 hover:text-white";
+                  if (active) btnClass = "bg-sky-500/20 text-sky-400 border-sky-500 font-bold shadow-sm";
+                  else if (ans !== undefined) {
+                    btnClass = ans === q.correct ? "bg-emerald-950/40 text-emerald-400 border-emerald-600/60 font-bold" : "bg-rose-950/40 text-rose-400 border-rose-600/60 font-bold";
+                  }
+
+                  return (
+                    <button
+                      key={q.global_n}
+                      onClick={() => handleGoto(idx)}
+                      className={`relative aspect-square rounded-lg border text-xs font-semibold transition-all flex items-center justify-center ${btnClass}`}
+                    >
+                      {q.global_n}
+                      {isFlag && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* =========================================
           FIXED BOTTOM NAVIGATION FOOTER
       ========================================= */}
-      <footer className="fixed bottom-0 left-0 right-0 z-40 h-16 sm:h-20 bg-[#090e17]/95 backdrop-blur-md border-t border-[#23344e] px-4 sm:px-8 flex items-center justify-between shadow-2xl">
-        <div className="flex items-center gap-3">
+      <footer className="sticky bottom-0 z-40 h-14 bg-[#090e17]/95 backdrop-blur-md border-t border-[#23344e] px-4 sm:px-6 flex items-center justify-between shadow-lg">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => handleNavigate(-1)}
             disabled={currentIndex === 0}
-            className="px-4 py-2 rounded-xl border border-[#23344e] bg-[#131d2e] hover:bg-[#1c2a42] disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm font-bold text-slate-200 flex items-center gap-1"
+            className="px-3 py-1.5 rounded-lg border border-[#23344e] bg-[#131d2e] hover:bg-[#1c2a42] disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold text-slate-200 flex items-center gap-1"
           >
-            <ChevronLeft className="w-4 h-4" /> Prev
+            <ChevronLeft className="w-3.5 h-3.5" /> Prev
           </button>
 
           <button
             onClick={() => handleNavigate(1)}
             disabled={currentIndex === filteredQuestions.length - 1}
-            className="px-4 py-2 rounded-xl border border-[#23344e] bg-sky-500 hover:bg-sky-400 disabled:opacity-30 disabled:cursor-not-allowed text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1 shadow-md shadow-sky-500/20"
+            className="px-3.5 py-1.5 rounded-lg border border-[#23344e] bg-sky-500 hover:bg-sky-400 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold text-slate-900 flex items-center gap-1 shadow-sm"
           >
-            Next <ChevronRight className="w-4 h-4" />
+            Next <ChevronRight className="w-3.5 h-3.5" />
           </button>
 
           <span className="text-xs font-bold text-slate-400 ml-2 hidden sm:inline">
@@ -771,20 +752,20 @@ function ExamRunnerContent() {
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="hidden md:flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+          <label className="hidden md:flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
             <input
               type="checkbox"
               checked={autoRead}
               onChange={(e) => setAutoRead(e.target.checked)}
               className="rounded bg-[#131d2e] border-[#23344e] text-sky-500"
             />
-            Auto-read next question
+            Auto-read next
           </label>
 
           {isAnswered && (
             <button
               onClick={handleClearAnswer}
-              className="px-3 py-1.5 rounded-xl border border-[#23344e] bg-[#131d2e] hover:bg-[#1c2a42] text-xs font-semibold text-slate-400 hover:text-white"
+              className="px-2.5 py-1 rounded-lg border border-[#23344e] bg-[#131d2e] hover:bg-[#1c2a42] text-xs font-semibold text-slate-400 hover:text-white"
             >
               Clear Selection
             </button>
