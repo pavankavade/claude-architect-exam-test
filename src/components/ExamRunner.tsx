@@ -197,12 +197,13 @@ function ExamRunnerContent() {
 
   // Option selection
   const handleSelectOption = (letter: "A" | "B" | "C" | "D") => {
-    console.log("handleSelectOption called with:", letter, "currentQ:", currentQ?.global_n, "current answers:", answers);
+    stopAudio(); // Stop any active TTS audio immediately when an answer is chosen
     if (!currentQ) return;
     setAnswers((prev) => ({ ...prev, [currentQ.global_n]: letter }));
   };
 
   const handleClearAnswer = () => {
+    stopAudio();
     if (!currentQ) return;
     setAnswers((prev) => {
       const next = { ...prev };
