@@ -56,7 +56,7 @@ function ExamRunnerContent() {
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
   const [autoRead, setAutoRead] = useState<boolean>(false);
   const [showSummary, setShowSummary] = useState<boolean>(false);
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true); // Open by default
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
 
   // Audio State
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
@@ -64,7 +64,6 @@ function ExamRunnerContent() {
   const [ttsStatus, setTtsStatus] = useState<string>("Andrew Neural Audio Ready");
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const explRef = useRef<HTMLDivElement | null>(null);
 
   // Filtered Questions
   const filteredQuestions: Question[] = useMemo(() => {
@@ -75,10 +74,12 @@ function ExamRunnerContent() {
   const currentQ: Question | undefined = filteredQuestions[currentIndex];
   const total = filteredQuestions.length;
 
+  const isLoadedRef = useRef(false);
+
   // Load Saved State
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("cca_nextjs_exam_state_v3");
+      const saved = localStorage.getItem("cca_nextjs_exam_state_v4");
       if (saved) {
         const data = JSON.parse(saved);
         if (data.answers) setAnswers(data.answers);
@@ -90,11 +91,14 @@ function ExamRunnerContent() {
       }
     } catch (e) {
       console.error("Failed to load saved state", e);
+    } finally {
+      isLoadedRef.current = true;
     }
   }, [filteredQuestions.length]);
 
   // Save State
   useEffect(() => {
+    if (!isLoadedRef.current) return;
     try {
       const data = {
         answers,
@@ -102,7 +106,7 @@ function ExamRunnerContent() {
         autoRead,
         lastIndex: currentIndex,
       };
-      localStorage.setItem("cca_nextjs_exam_state_v3", JSON.stringify(data));
+      localStorage.setItem("cca_nextjs_exam_state_v4", JSON.stringify(data));
     } catch (e) {
       console.error("Failed to save state", e);
     }
@@ -193,15 +197,9 @@ function ExamRunnerContent() {
 
   // Option selection
   const handleSelectOption = (letter: "A" | "B" | "C" | "D") => {
-    if (!currentQ || answers[currentQ.global_n] !== undefined) return;
+    console.log("handleSelectOption called with:", letter, "currentQ:", currentQ?.global_n, "current answers:", answers);
+    if (!currentQ) return;
     setAnswers((prev) => ({ ...prev, [currentQ.global_n]: letter }));
-
-    // Smooth scroll explanation into view
-    setTimeout(() => {
-      if (explRef.current) {
-        explRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }
-    }, 60);
   };
 
   const handleClearAnswer = () => {
@@ -228,7 +226,6 @@ function ExamRunnerContent() {
     const next = currentIndex + dir;
     if (next >= 0 && next < filteredQuestions.length) {
       setCurrentIndex(next);
-      window.scrollTo({ top: 0, behavior: "smooth" });
       if (autoRead && filteredQuestions[next]) {
         setTimeout(() => {
           const file = `/audio/q_${filteredQuestions[next].global_n}.mp3`;
@@ -242,7 +239,6 @@ function ExamRunnerContent() {
     stopAudio();
     setCurrentIndex(idx);
     setShowSummary(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // Confetti on Summary
@@ -331,43 +327,40 @@ function ExamRunnerContent() {
       setFlagged(new Set());
       setShowSummary(false);
       setCurrentIndex(0);
-      localStorage.removeItem("cca_nextjs_exam_state_v3");
+      localStorage.removeItem("cca_nextjs_exam_state_v4");
     }
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex flex-col justify-between bg-[#090e17]">
+    <div className="h-[calc(100vh-56px)] flex flex-col justify-between bg-[#090e17] overflow-hidden select-none">
       {/* Top Progress Bar */}
-      <div className="w-full bg-[#1c2a42] h-1.5 fixed top-16 left-0 z-40">
+      <div className="w-full bg-[#1c2a42] h-1 fixed top-14 left-0 z-40">
         <div
           className="h-full bg-gradient-to-r from-sky-400 to-indigo-500 transition-all duration-300 ease-out"
           style={{ width: `${progressPct}%` }}
         />
       </div>
 
-      {/* Main Layout (Sidebar + Centered Content) */}
-      <div className="max-w-[1520px] mx-auto w-full px-4 sm:px-6 py-6 flex gap-6 flex-1 items-start">
+      {/* Main Workspace (Sidebar + Centered Compact View) */}
+      <div className="max-w-[1520px] mx-auto w-full px-3 sm:px-6 py-2.5 flex gap-4 flex-1 items-stretch overflow-hidden">
         {/* =========================================
-            LEFT DOCKED SIDEBAR (VISIBLE BY DEFAULT)
+            LEFT DOCKED SIDEBAR (COMPACT & DOCKED)
         ========================================= */}
         {sidebarOpen && (
-          <aside className="w-72 min-w-[280px] bg-[#101726] border border-[#23344e] rounded-2xl p-4 flex flex-col gap-3.5 sticky top-20 shadow-lg hidden md:flex">
-            {/* Header & Collapse Toggle */}
-            <div className="flex items-center justify-between pb-2.5 border-b border-[#23344e]">
-              <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-slate-200">
+          <aside className="w-64 min-w-[256px] bg-[#101726] border border-[#23344e] rounded-2xl p-3 flex flex-col gap-2.5 shadow-lg hidden md:flex h-[calc(100vh-125px)] sticky top-16 flex-shrink-0">
+            {/* Header & Stats */}
+            <div className="flex items-center justify-between pb-2 border-b border-[#23344e]">
+              <div className="flex items-center gap-1.5 font-bold text-[11px] uppercase tracking-wider text-slate-200">
                 <LayoutGrid className="w-3.5 h-3.5 text-sky-400" />
                 Question Palette
               </div>
-              <span className="text-xs font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-full">
+              <span className="text-xs font-bold text-sky-400 bg-sky-500/10 px-2 py-0.2 rounded-full">
                 {answeredCount}/{total}
               </span>
             </div>
 
             {/* Scenario Filter */}
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1 flex items-center gap-1">
-                <Filter className="w-3 h-3 text-sky-400" /> Filter Domain
-              </label>
               <select
                 value={selectedScenario}
                 onChange={(e) => {
@@ -375,7 +368,7 @@ function ExamRunnerContent() {
                   setSelectedScenario(e.target.value);
                   setCurrentIndex(0);
                 }}
-                className="w-full text-xs font-semibold bg-[#162236] border border-[#23344e] text-slate-200 rounded-xl px-2.5 py-2 outline-none focus:border-sky-500 cursor-pointer"
+                className="w-full text-xs font-semibold bg-[#162236] border border-[#23344e] text-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-sky-500 cursor-pointer"
               >
                 <option value="ALL">All Scenarios ({QUESTIONS_DATA.length})</option>
                 {SCENARIOS.map((sc, i) => (
@@ -386,25 +379,25 @@ function ExamRunnerContent() {
               </select>
             </div>
 
-            {/* Stats Summary */}
-            <div className="grid grid-cols-3 gap-1.5 text-center text-[11px] bg-[#162236] p-2 rounded-xl border border-[#23344e]">
+            {/* Mini Stats Grid */}
+            <div className="grid grid-cols-3 gap-1 text-center text-[10px] bg-[#162236] p-1.5 rounded-lg border border-[#23344e]">
               <div>
-                <span className="text-slate-400 block text-[9px] uppercase">Done</span>
+                <span className="text-slate-400 block text-[8px] uppercase">Done</span>
                 <strong className="text-white">{answeredCount}</strong>
               </div>
               <div>
-                <span className="text-slate-400 block text-[9px] uppercase">Correct</span>
+                <span className="text-slate-400 block text-[8px] uppercase">Correct</span>
                 <strong className="text-emerald-400">{correctCount}</strong>
               </div>
               <div>
-                <span className="text-slate-400 block text-[9px] uppercase">Flagged</span>
+                <span className="text-slate-400 block text-[8px] uppercase">Flagged</span>
                 <strong className="text-amber-400">{flagged.size}</strong>
               </div>
             </div>
 
-            {/* 88 Question Button Grid */}
-            <div className="max-h-[calc(100vh-360px)] overflow-y-auto pr-1">
-              <div className="grid grid-cols-4 gap-1.5">
+            {/* 88 Question Button Grid with Dedicated Palette Scrollbar */}
+            <div className="flex-1 overflow-y-auto pr-1 palette-scrollbar min-h-0">
+              <div className="grid grid-cols-4 gap-1">
                 {filteredQuestions.map((q, idx) => {
                   const ans = answers[q.global_n];
                   const active = idx === currentIndex;
@@ -423,11 +416,11 @@ function ExamRunnerContent() {
                     <button
                       key={q.global_n}
                       onClick={() => handleGoto(idx)}
-                      className={`relative aspect-square rounded-xl border text-xs font-semibold transition-all flex items-center justify-center ${btnClass}`}
+                      className={`relative aspect-square rounded-lg border text-[11px] font-semibold transition-all flex items-center justify-center ${btnClass}`}
                       title={`Q${q.global_n}: ${q.scenario}`}
                     >
                       {q.global_n}
-                      {isFlag && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400" />}
+                      {isFlag && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-amber-400" />}
                     </button>
                   );
                 })}
@@ -437,25 +430,25 @@ function ExamRunnerContent() {
         )}
 
         {/* =========================================
-            CENTERED MAIN QUESTION & EXPLANATION CONTENT
+            CENTERED COMPACT QUESTION WORKSPACE (SCROLL-FREE)
         ========================================= */}
-        <div className="flex-1 max-w-4xl mx-auto w-full pb-28">
+        <div className="flex-1 max-w-4xl mx-auto w-full flex flex-col justify-between overflow-y-auto pr-1">
           {!showSummary ? (
             currentQ && (
-              <div className="space-y-4">
+              <div className="space-y-2.5">
                 {/* Meta Bar */}
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between flex-wrap gap-1.5">
+                  <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => setSidebarOpen(!sidebarOpen)}
-                      className="px-2.5 py-1 rounded-lg bg-[#131d2e] border border-[#23344e] text-xs font-bold text-slate-300 hover:text-sky-400 flex items-center gap-1.5 transition-colors"
+                      className="px-2 py-0.5 rounded-md bg-[#131d2e] border border-[#23344e] text-[11px] font-bold text-slate-300 hover:text-sky-400 flex items-center gap-1 transition-colors"
                       title="Toggle Palette Sidebar"
                     >
-                      <SlidersHorizontal className="w-3.5 h-3.5 text-sky-400" />
+                      <SlidersHorizontal className="w-3 h-3 text-sky-400" />
                       <span>{sidebarOpen ? "Hide Palette" : "Show Palette"}</span>
                     </button>
 
-                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400">
                       {currentQ.scenario}
                     </span>
 
@@ -464,93 +457,79 @@ function ExamRunnerContent() {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <button
                       onClick={handleToggleFlag}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors ${
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-semibold transition-colors ${
                         isFlagged
                           ? "bg-amber-500/20 border-amber-500 text-amber-400"
                           : "bg-[#131d2e] border-[#23344e] text-slate-400 hover:text-white"
                       }`}
                     >
-                      <Bookmark className={`w-3.5 h-3.5 ${isFlagged ? "fill-amber-400" : ""}`} />
-                      {isFlagged ? "Flagged" : "Bookmark"}
+                      <Bookmark className={`w-3 h-3 ${isFlagged ? "fill-amber-400" : ""}`} />
+                      {isFlagged ? "Flagged" : "Flag"}
                     </button>
 
                     <button
                       onClick={() => setShowSummary(true)}
-                      className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-[#131d2e] border border-[#23344e] hover:border-sky-500 text-xs font-semibold text-sky-400 hover:text-white transition-colors"
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#131d2e] border border-[#23344e] hover:border-sky-500 text-[11px] font-semibold text-sky-400 hover:text-white transition-colors"
                     >
-                      <Award className="w-3.5 h-3.5" /> Finish &amp; Review
+                      <Award className="w-3 h-3" /> Finish &amp; Review
                     </button>
                   </div>
                 </div>
 
-                {/* Microsoft Andrew Neural Audio Bar */}
+                {/* Ultra-Compact Audio Bar */}
                 <div
-                  className={`p-3 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                  className={`px-3 py-1.5 rounded-xl border flex items-center justify-between gap-2 text-xs transition-all ${
                     isSpeaking
-                      ? "bg-purple-950/20 border-purple-500/50 shadow-md shadow-purple-500/10"
+                      ? "bg-purple-950/20 border-purple-500/50 shadow-sm"
                       : "bg-[#131d2e] border-[#23344e]"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400 flex-shrink-0">
+                  <div className="flex items-center gap-2 truncate">
+                    <div className="w-6 h-6 rounded-md bg-sky-500/20 flex items-center justify-center text-sky-400 flex-shrink-0">
                       {isSpeaking ? (
-                        <div className="flex items-center gap-0.5 h-3.5">
+                        <div className="flex items-center gap-0.5 h-3">
                           <div className="w-0.5 bg-purple-400 wave-bar-1" />
                           <div className="w-0.5 bg-purple-400 wave-bar-2" />
                           <div className="w-0.5 bg-purple-400 wave-bar-3" />
-                          <div className="w-0.5 bg-purple-400 wave-bar-4" />
-                          <div className="w-0.5 bg-purple-400 wave-bar-5" />
                         </div>
                       ) : (
-                        <Headphones className="w-4 h-4" />
+                        <Headphones className="w-3.5 h-3.5" />
                       )}
                     </div>
-                    <div>
-                      <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
-                        {ttsStatus}
-                        <span className="text-[10px] font-semibold uppercase px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30">
-                          ⚡ 0ms Andrew Neural
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-400 font-medium">Instant Pre-Rendered Audio Simulation</div>
-                    </div>
+                    <span className="font-semibold text-slate-200 text-xs truncate">
+                      {isSpeaking ? ttsStatus : "Microsoft Andrew Neural Voice Audio"}
+                    </span>
                   </div>
 
-                  {/* Audio Controls */}
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button
                       onClick={() => speakQuestion(false)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-900 shadow-sm transition-all hover:scale-105 active:scale-95"
+                      className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-sky-500 hover:bg-sky-400 text-slate-900 shadow-sm flex items-center gap-1"
                     >
-                      <Volume2 className="w-3.5 h-3.5" /> Listen Question
+                      <Volume2 className="w-3 h-3" /> Listen Question
                     </button>
 
                     <button
                       onClick={() => speakQuestion(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#1c2a42] hover:bg-[#23344e] border border-[#23344e] text-slate-200 hover:text-white transition-colors"
+                      className="px-2 py-1 rounded-md text-[11px] font-semibold bg-[#1c2a42] hover:bg-[#23344e] border border-[#23344e] text-slate-200"
                     >
-                      <Play className="w-3.5 h-3.5 text-indigo-400" /> Read Choices
+                      <Play className="w-3 h-3 text-indigo-400 inline mr-0.5" /> + Choices
                     </button>
 
                     {isSpeaking && (
                       <>
                         <button
                           onClick={pauseResumeAudio}
-                          className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-[#1c2a42] hover:bg-[#23344e] border border-[#23344e] text-slate-200"
-                          title="Pause / Resume"
+                          className="px-2 py-1 rounded-md text-[11px] bg-[#1c2a42] text-slate-200"
+                          title="Pause"
                         >
-                          {isPaused ? <Play className="w-3.5 h-3.5 text-emerald-400" /> : <Pause className="w-3.5 h-3.5 text-amber-400" />}
+                          {isPaused ? <Play className="w-3 h-3 text-emerald-400" /> : <Pause className="w-3 h-3 text-amber-400" />}
                         </button>
-
-                        <button
-                          onClick={stopAudio}
-                          className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-950/40 hover:bg-rose-900/60 border border-rose-700/50 text-rose-300"
-                          title="Stop Audio"
-                        >
-                          <Square className="w-3.5 h-3.5 fill-rose-400" />
+                        <button onClick={stopAudio} className="px-2 py-1 rounded-md text-[11px] bg-rose-950/40 text-rose-300" title="Stop">
+                          <Square className="w-3 h-3 fill-rose-400" />
                         </button>
                       </>
                     )}
@@ -558,24 +537,24 @@ function ExamRunnerContent() {
                 </div>
 
                 {/* Situation Context Box */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-[#131d2e] border border-[#23344e] shadow-sm space-y-1.5">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                    <HelpCircle className="w-3.5 h-3.5 text-sky-400" /> Situation Context
+                <div className="p-3 rounded-xl bg-[#131d2e] border border-[#23344e] shadow-sm space-y-1">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <HelpCircle className="w-3 h-3 text-sky-400" /> Situation Context
                   </div>
                   <div
-                    className="text-slate-100 text-xs sm:text-sm leading-relaxed format-code"
+                    className="text-slate-100 text-xs sm:text-[13px] leading-relaxed format-code"
                     dangerouslySetInnerHTML={{ __html: formatMarkdown(currentQ.situation) }}
                   />
                 </div>
 
                 {/* Question Prompt */}
                 <h2
-                  className="text-sm sm:text-base md:text-lg font-bold text-white leading-snug format-code"
+                  className="text-xs sm:text-sm font-bold text-white leading-snug format-code my-0.5"
                   dangerouslySetInnerHTML={{ __html: formatMarkdown(currentQ.question) }}
                 />
 
-                {/* 4 Options Grid */}
-                <div className="space-y-2.5">
+                {/* 4 Options Grid (Compact & Clear) */}
+                <div className="space-y-1.5">
                   {currentQ.options.map((opt) => {
                     let cardBorder = "border-[#23344e] bg-[#131d2e] hover:border-sky-500/50 hover:bg-[#162236]";
                     let badgeClass = "bg-[#1c2a42] text-slate-300 border-[#23344e]";
@@ -593,61 +572,60 @@ function ExamRunnerContent() {
                     }
 
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={opt.letter}
                         onClick={() => handleSelectOption(opt.letter)}
-                        className={`p-3.5 sm:p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3.5 ${cardBorder}`}
+                        className={`w-full text-left py-2 px-3 rounded-xl border-2 transition-all cursor-pointer flex items-center gap-3 ${cardBorder}`}
                       >
                         <div
-                          className={`w-7 h-7 rounded-full border flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 transition-colors ${badgeClass}`}
+                          className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold flex-shrink-0 transition-colors ${badgeClass}`}
                         >
                           {opt.letter}
                         </div>
-                        <div className="flex-1 text-xs sm:text-sm text-slate-200 leading-relaxed flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex-1 text-xs sm:text-[13px] text-slate-200 leading-snug flex items-center justify-between flex-wrap gap-1.5">
                           <span
                             className="format-code"
                             dangerouslySetInnerHTML={{ __html: formatMarkdown(opt.text) }}
                           />
 
                           {isAnswered && opt.letter === currentQ.correct && (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-600/60 px-2 py-0.5 rounded-full">
-                              <Check className="w-3 h-3" /> Correct Answer
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-600/60 px-2 py-0.2 rounded-full">
+                              <Check className="w-2.5 h-2.5" /> Correct Answer
                             </span>
                           )}
 
                           {isAnswered && opt.letter === chosen && opt.letter !== currentQ.correct && (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 bg-rose-950/60 border border-rose-600/60 px-2 py-0.5 rounded-full">
-                              <XCircle className="w-3 h-3" /> Your Selection
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-rose-400 bg-rose-950/60 border border-rose-600/60 px-2 py-0.2 rounded-full">
+                              <XCircle className="w-2.5 h-2.5" /> Your Choice
                             </span>
                           )}
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
 
                 {/* =========================================
-                    PROMINENT INLINE EXPLANATION CARD (ALWAYS VISIBLE WHEN ANSWERED)
+                    COMPACT INLINE EXPLANATION CARD (FITS WITHOUT SCROLL)
                 ========================================= */}
                 {isAnswered && (
                   <div
-                    ref={explRef}
-                    className={`p-5 rounded-2xl border-2 transition-all shadow-xl space-y-3 mt-4 ${
+                    className={`p-3 rounded-xl border-2 transition-all shadow-md space-y-2 mt-2 animate-fadeIn ${
                       isCorrect
                         ? "bg-[#131d2e] border-emerald-500 shadow-emerald-500/10"
                         : "bg-[#131d2e] border-rose-500 shadow-rose-500/10"
                     }`}
-                    style={{ scrollMarginBottom: "100px" }}
                   >
                     {/* Header Banner */}
                     <div
-                      className={`flex items-center justify-between p-3 rounded-xl border ${
+                      className={`flex items-center justify-between p-2 rounded-lg border ${
                         isCorrect
                           ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-300"
                           : "bg-rose-950/40 border-rose-500/40 text-rose-300"
                       }`}
                     >
-                      <div className="font-bold text-xs sm:text-sm flex items-center gap-2">
+                      <div className="font-bold text-xs flex items-center gap-1.5">
                         {isCorrect ? (
                           <>
                             <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
@@ -657,8 +635,8 @@ function ExamRunnerContent() {
                           <>
                             <XCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
                             <span>
-                              ❌ Incorrect. You chose Option {chosen}, but the correct answer is Option{" "}
-                              <strong className="text-emerald-400">{currentQ.correct}</strong>.
+                              ❌ Incorrect. Correct is{" "}
+                              <strong className="text-emerald-400">Option {currentQ.correct}</strong>.
                             </span>
                           </>
                         )}
@@ -666,16 +644,16 @@ function ExamRunnerContent() {
 
                       <button
                         onClick={speakExplanation}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-[#1c2a42] hover:bg-[#23344e] border border-[#23344e] text-slate-200 flex-shrink-0"
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#1c2a42] hover:bg-[#23344e] border border-[#23344e] text-slate-200 flex-shrink-0"
                       >
                         <Volume2 className="w-3 h-3 text-sky-400" /> Read Rationale
                       </button>
                     </div>
 
                     {/* Explanation Body */}
-                    <div className="p-3.5 rounded-xl bg-[#1c2a42] border-l-4 border-emerald-500 text-xs sm:text-sm text-slate-200 leading-relaxed space-y-1.5">
-                      <div className="font-bold text-slate-100 text-xs uppercase tracking-wide flex items-center gap-1">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Solution Rationale:
+                    <div className="p-2.5 rounded-lg bg-[#1c2a42] border-l-4 border-emerald-500 text-xs text-slate-200 leading-relaxed space-y-1">
+                      <div className="font-bold text-slate-100 text-[11px] uppercase tracking-wide flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-amber-400" /> Architectural Rationale:
                       </div>
                       <div
                         className="format-code"
@@ -690,57 +668,57 @@ function ExamRunnerContent() {
             /* =========================================
                 FINISH & REVIEW SUMMARY SCREEN
             ========================================= */
-            <div className="space-y-6 animate-fadeIn py-2">
-              <div className="p-8 sm:p-10 rounded-3xl bg-[#131d2e] border border-[#23344e] text-center shadow-xl">
-                <div className="text-5xl sm:text-6xl font-black bg-gradient-to-r from-sky-400 via-indigo-300 to-emerald-400 bg-clip-text text-transparent mb-2">
+            <div className="space-y-4 animate-fadeIn py-2 max-w-2xl mx-auto text-center">
+              <div className="p-6 rounded-3xl bg-[#131d2e] border border-[#23344e] shadow-xl">
+                <div className="text-5xl font-black bg-gradient-to-r from-sky-400 via-indigo-300 to-emerald-400 bg-clip-text text-transparent mb-1">
                   {Math.round((correctCount / total) * 100)}%
                 </div>
-                <h3 className="text-xl font-bold text-white mb-1">Exam Results Summary</h3>
-                <p className="text-xs sm:text-sm text-slate-400 mb-6">
+                <h3 className="text-lg font-bold text-white mb-1">Exam Results Summary</h3>
+                <p className="text-xs text-slate-400 mb-4">
                   You answered {correctCount} of {total} questions correctly ({total - answeredCount} unanswered)
                 </p>
 
                 {/* Metric Cards */}
-                <div className="grid grid-cols-4 gap-2.5 max-w-lg mx-auto mb-6 text-center">
-                  <div className="p-3 rounded-xl bg-[#1c2a42] border border-[#23344e]">
-                    <div className="text-xl font-bold text-white">{total}</div>
-                    <div className="text-[10px] font-semibold text-slate-400 uppercase">Total</div>
+                <div className="grid grid-cols-4 gap-2 max-w-md mx-auto mb-4 text-center">
+                  <div className="p-2.5 rounded-xl bg-[#1c2a42] border border-[#23344e]">
+                    <div className="text-lg font-bold text-white">{total}</div>
+                    <div className="text-[9px] font-semibold text-slate-400 uppercase">Total</div>
                   </div>
-                  <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-700/50">
-                    <div className="text-xl font-bold text-emerald-400">{correctCount}</div>
-                    <div className="text-[10px] font-semibold text-emerald-300 uppercase">Correct</div>
+                  <div className="p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-700/50">
+                    <div className="text-lg font-bold text-emerald-400">{correctCount}</div>
+                    <div className="text-[9px] font-semibold text-emerald-300 uppercase">Correct</div>
                   </div>
-                  <div className="p-3 rounded-xl bg-rose-950/30 border border-rose-700/50">
-                    <div className="text-xl font-bold text-rose-400">{wrongCount}</div>
-                    <div className="text-[10px] font-semibold text-rose-300 uppercase">Wrong</div>
+                  <div className="p-2.5 rounded-xl bg-rose-950/30 border border-rose-700/50">
+                    <div className="text-lg font-bold text-rose-400">{wrongCount}</div>
+                    <div className="text-[9px] font-semibold text-rose-300 uppercase">Wrong</div>
                   </div>
-                  <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-700/50">
-                    <div className="text-xl font-bold text-amber-400">{flagged.size}</div>
-                    <div className="text-[10px] font-semibold text-amber-300 uppercase">Flagged</div>
+                  <div className="p-2.5 rounded-xl bg-amber-950/30 border border-amber-700/50">
+                    <div className="text-lg font-bold text-amber-400">{flagged.size}</div>
+                    <div className="text-[9px] font-semibold text-amber-300 uppercase">Flagged</div>
                   </div>
                 </div>
 
                 {/* Actions */}
-                <div className="flex flex-wrap items-center justify-center gap-2.5">
+                <div className="flex flex-wrap items-center justify-center gap-2">
                   <button
                     onClick={handleRetakeIncorrect}
-                    className="px-5 py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-md hover:scale-105 active:scale-95 transition-all"
+                    className="px-4 py-2 rounded-xl font-bold text-xs bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-md hover:scale-105 active:scale-95 transition-all"
                   >
                     🔁 Retake Incorrect ({wrongCount})
                   </button>
 
                   <button
                     onClick={() => setShowSummary(false)}
-                    className="px-5 py-2.5 rounded-xl font-semibold text-xs bg-[#1c2a42] hover:bg-[#23344e] border border-[#23344e] text-slate-200"
+                    className="px-4 py-2 rounded-xl font-semibold text-xs bg-[#1c2a42] hover:bg-[#23344e] border border-[#23344e] text-slate-200"
                   >
                     <ArrowLeft className="w-3.5 h-3.5 inline mr-1" /> Back to Test
                   </button>
 
                   <button
                     onClick={handleResetExam}
-                    className="px-4 py-2.5 rounded-xl font-semibold text-xs bg-rose-950/40 hover:bg-rose-900/60 border border-rose-700/50 text-rose-300"
+                    className="px-3 py-2 rounded-xl font-semibold text-xs bg-rose-950/40 hover:bg-rose-900/60 border border-rose-700/50 text-rose-300"
                   >
-                    <RotateCcw className="w-3.5 h-3.5 inline mr-1" /> Reset All Answers
+                    <RotateCcw className="w-3.5 h-3.5 inline mr-1" /> Reset
                   </button>
                 </div>
               </div>
@@ -750,24 +728,24 @@ function ExamRunnerContent() {
       </div>
 
       {/* =========================================
-          FIXED BOTTOM NAVIGATION FOOTER
+          COMPACT BOTTOM NAVIGATION FOOTER
       ========================================= */}
-      <footer className="sticky bottom-0 z-40 h-16 bg-[#090e17]/95 backdrop-blur-md border-t border-[#23344e] px-4 sm:px-6 flex items-center justify-between shadow-lg">
+      <footer className="h-12 bg-[#090e17]/95 backdrop-blur-md border-t border-[#23344e] px-4 sm:px-6 flex items-center justify-between shadow-lg z-30">
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleNavigate(-1)}
             disabled={currentIndex === 0}
-            className="px-3.5 py-1.5 rounded-lg border border-[#23344e] bg-[#131d2e] hover:bg-[#1c2a42] disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold text-slate-200 flex items-center gap-1"
+            className="px-3 py-1 rounded-md border border-[#23344e] bg-[#131d2e] hover:bg-[#1c2a42] disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold text-slate-200 flex items-center gap-1"
           >
-            <ChevronLeft className="w-3.5 h-3.5" /> Prev
+            <ChevronLeft className="w-3 h-3" /> Prev
           </button>
 
           <button
             onClick={() => handleNavigate(1)}
             disabled={currentIndex === filteredQuestions.length - 1}
-            className="px-4 py-1.5 rounded-lg border border-[#23344e] bg-sky-500 hover:bg-sky-400 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold text-slate-900 flex items-center gap-1 shadow-sm"
+            className="px-3.5 py-1 rounded-md border border-[#23344e] bg-sky-500 hover:bg-sky-400 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold text-slate-900 flex items-center gap-1 shadow-sm"
           >
-            Next <ChevronRight className="w-3.5 h-3.5" />
+            Next <ChevronRight className="w-3 h-3" />
           </button>
 
           <span className="text-xs font-bold text-slate-400 ml-2 hidden sm:inline">
@@ -783,13 +761,13 @@ function ExamRunnerContent() {
               onChange={(e) => setAutoRead(e.target.checked)}
               className="rounded bg-[#131d2e] border-[#23344e] text-sky-500"
             />
-            Auto-read next question
+            Auto-read next
           </label>
 
           {isAnswered && (
             <button
               onClick={handleClearAnswer}
-              className="px-2.5 py-1 rounded-lg border border-[#23344e] bg-[#131d2e] hover:bg-[#1c2a42] text-xs font-semibold text-slate-400 hover:text-white"
+              className="px-2 py-0.5 rounded-md border border-[#23344e] bg-[#131d2e] hover:bg-[#1c2a42] text-[11px] font-semibold text-slate-400 hover:text-white"
             >
               Clear Selection
             </button>

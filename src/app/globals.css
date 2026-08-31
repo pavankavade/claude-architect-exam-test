@@ -53,6 +53,24 @@ body {
   background: #475569;
 }
 
+/* Dedicated Question Palette Scrollbar */
+.palette-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.palette-scrollbar::-webkit-scrollbar-track {
+  background: rgba(19, 29, 46, 0.6);
+  border-radius: 4px;
+  margin: 2px 0;
+}
+.palette-scrollbar::-webkit-scrollbar-thumb {
+  background: #2563eb;
+  background: linear-gradient(180deg, #0284c7, #38bdf8);
+  border-radius: 4px;
+}
+.palette-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #38bdf8;
+}
+
 /* Waveform Animation */
 @keyframes audioWave {
   0% { height: 25%; }
