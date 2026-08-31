@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://claude-architect-exam.pages.dev/sitemap.xml
