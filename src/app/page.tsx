@@ -23,17 +23,21 @@ export default function HomePage() {
   const scenarios = [
     {
       title: "Multi-agent Research Systems",
+      slug: "multi-agent-research-system",
+      scenarioFilter: "Multi-agent Research System",
       icon: Bot,
       color: "from-blue-500 to-cyan-500",
       border: "border-cyan-500/30",
       bg: "bg-cyan-950/20",
       description:
         "Coordinator-subagent topology, deterministic error propagation, task decomposition, and avoiding context dilution in long research outputs.",
-      count: 24,
+      count: 18,
       tag: "Agentic Systems",
     },
     {
       title: "Customer Support Agents",
+      slug: "customer-support-agent",
+      scenarioFilter: "Customer Support Agent",
       icon: ShieldAlert,
       color: "from-emerald-500 to-teal-500",
       border: "border-teal-500/30",
@@ -45,25 +49,42 @@ export default function HomePage() {
     },
     {
       title: "Code Generation with Claude Code",
+      slug: "code-generation-with-claude-code",
+      scenarioFilter: "Code Generation with Claude Code",
       icon: Terminal,
       color: "from-purple-500 to-indigo-500",
       border: "border-indigo-500/30",
       bg: "bg-indigo-950/20",
       description:
-        "Planning mode for large refactors, `.claude/rules/` directory scoping with glob patterns, custom slash commands, and subagent worktrees.",
-      count: 22,
+        "Planning mode for large refactors, .claude/rules/ directory scoping with glob patterns, custom slash commands, and subagent worktrees.",
+      count: 18,
       tag: "Developer Tooling",
     },
     {
       title: "Claude Code in CI/CD & Batch APIs",
+      slug: "claude-code-ci-cd-pipelines",
+      scenarioFilter: "Claude Code for Continuous Integration",
       icon: Cpu,
       color: "from-amber-500 to-orange-500",
       border: "border-amber-500/30",
       bg: "bg-amber-950/20",
       description:
-        "Non-interactive `--print` CLI execution, Message Batches API (50% savings) vs synchronous pre-merge hooks, and multi-pass code reviews.",
-      count: 24,
+        "Non-interactive --print CLI execution, Message Batches API (50% savings) vs synchronous pre-merge hooks, and multi-pass code reviews.",
+      count: 18,
       tag: "Production Pipelines",
+    },
+    {
+      title: "Conversational AI Architecture Patterns",
+      slug: "conversational-ai-architecture",
+      scenarioFilter: "Conversational AI Architecture Patterns",
+      icon: Layers,
+      color: "from-rose-500 to-pink-500",
+      border: "border-pink-500/30",
+      bg: "bg-pink-950/20",
+      description:
+        "Context compaction, Anthropic prompt caching breakpoints (90% savings), routing classifiers, and latency tiering between Haiku and Sonnet.",
+      count: 16,
+      tag: "Context & Caching",
     },
   ];
 
@@ -201,13 +222,20 @@ export default function HomePage() {
                   <p className="text-xs sm:text-sm text-slate-400 leading-relaxed mb-6">{sc.description}</p>
                 </div>
 
-                <div className="flex items-center justify-between pt-4 border-t border-[#23344e]/60 text-xs">
-                  <span className="font-semibold text-slate-400">{sc.count} Practice Questions</span>
+                <div className="flex items-center justify-between pt-4 border-t border-[#23344e]/60 text-xs flex-wrap gap-2">
                   <Link
-                    href={`/exam?scenario=${encodeURIComponent(sc.title)}`}
+                    href={`/scenarios/${sc.slug}/`}
+                    className="font-semibold text-slate-300 hover:text-white inline-flex items-center gap-1.5 hover:underline"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Domain Syllabus &amp; Guide</span>
+                  </Link>
+                  <Link
+                    href={`/exam?scenario=${encodeURIComponent(sc.scenarioFilter)}`}
                     className="font-bold text-sky-400 hover:text-sky-300 inline-flex items-center gap-1 group-hover:translate-x-1 transition-transform"
                   >
-                    Practice Scenario <ArrowRight className="w-3.5 h-3.5" />
+                    <span>Practice ({sc.count} Qs)</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
               </div>
