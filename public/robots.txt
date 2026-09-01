@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://claude-architect-exam.pages.dev/sitemap.xml
+Sitemap: https://claude-architect-prep.pages.dev/sitemap.xml

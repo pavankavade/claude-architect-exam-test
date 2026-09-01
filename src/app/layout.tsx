@@ -20,21 +20,21 @@ export const metadata: Metadata = {
   authors: [{ name: "Claude Certified Architect Community" }],
   creator: "Claude Certified Architect Community",
   publisher: "Claude Certified Architect Practice Simulator",
-  metadataBase: new URL("https://claude-architect-exam.pages.dev"),
+  metadataBase: new URL("https://claude-architect-prep.pages.dev"),
   alternates: {
     canonical: "/",
   },
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://claude-architect-exam.pages.dev",
+    url: "https://claude-architect-prep.pages.dev",
     siteName: "Claude Certified Architect Practice Exam",
     title: "Claude Certified Architect Practice Exam — 88 Real Exam Scenario Questions with Audio",
     description:
       "Pass the Anthropic Claude Certified Architect — Foundations certification on your first attempt with 88 interactive practice questions, instant solution rationales, and voice narration.",
     images: [
       {
-        url: "https://claude-architect-exam.pages.dev/og-image.png",
+        url: "https://claude-architect-prep.pages.dev/og-image.png",
         width: 1200,
         height: 630,
         alt: "Claude Certified Architect Practice Exam Simulator",
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
     },
   },
   verification: {
-    google: "zzczwXhQbMkNmbPxPNv21zp5Hfgni7f-7Uo0-bnpnAU",
+    google: "ko2q9hCpIaUFcl3IdMa2pATFLDTrX-FBzHWWLRwyjew",
   },
 };
 
@@ -74,8 +74,8 @@ export default function RootLayout({
     "@graph": [
       {
         "@type": "WebSite",
-        "@id": "https://claude-architect-exam.pages.dev/#website",
-        url: "https://claude-architect-exam.pages.dev",
+        "@id": "https://claude-architect-prep.pages.dev/#website",
+        url: "https://claude-architect-prep.pages.dev",
         name: "Claude Certified Architect Practice Exam Simulator",
         description: "Interactive exam simulator with audio text-to-speech for Claude Certified Architect Foundations",
         publisher: {
@@ -85,7 +85,7 @@ export default function RootLayout({
       },
       {
         "@type": "Course",
-        "@id": "https://claude-architect-exam.pages.dev/#course",
+        "@id": "https://claude-architect-prep.pages.dev/#course",
         name: "Claude Certified Architect — Foundations Practice Exam",
         description: "Comprehensive exam prep containing 88 scenario-based questions across 4 core Claude architectural domains.",
         provider: {
